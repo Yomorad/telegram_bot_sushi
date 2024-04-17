@@ -6,15 +6,15 @@
 Особенности:
 1) доступ в админку только для указанного в config.py id пользователя
 2) Все обработчики событий указаны в handlers:
-    admin.py    обработчик событий админа
-    client.py   обработчик событий пользователя
+ <p>   admin.py    обработчик событий админа</p>
+<p>    client.py   обработчик событий пользователя
 3) Все запросы к бд на PostgreSQL указаны в postgres_db.py
-    данные для входа указаны в config.py
-    инициалиализация и предзагрузка бд указана в on_startup() в bot_suchi.py
-    все запросы разбиты по разделам
+<p>    данные для входа указаны в config.py</p>
+<p>    инициалиализация и предзагрузка бд указана в on_startup() в bot_suchi.py</p>
+<p>    все запросы разбиты по разделам</p>
 4) кнопки или инлайн-кнопки указаны в keyboards
-    admin_kb.py    кнопки админа
-    client_kb.py   кнопки пользователя
+<p>    admin_kb.py    кнопки админа</p>
+<p>    client_kb.py   кнопки пользователя</p>
 5) защита от спама указана в middlewares/throttling.py
 6) Перед деплоем на сервер, обратите внимание на polling в точке входа и замените на webhook
 
@@ -30,7 +30,7 @@ admin_ids: int = 'admin_ids'
 3) платёжный токен, выдаваемый BotFather через разделы оплаты, либо напрямую от банка через онлайн-эквайринг
 pay_token: str = 'pay_token'
 4) Базовые данные входа в бд PostgreSQL:
-    data_base_p: str = 'data_base_p'
-    user_p: str = 'user_p'
-    host_p: str = 'host_p'
-    password_p: str = 'password_p'
+<p>    data_base_p: str = 'data_base_p'</p>
+<p>    user_p: str = 'user_p'</p>
+<p>    host_p: str = 'host_p'</p>
+<p>    password_p: str = 'password_p'</p>
