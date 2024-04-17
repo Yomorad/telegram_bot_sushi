@@ -1,0 +1,53 @@
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton#, ReplyKeyboardRemove
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+b1 = KeyboardButton('👨‍🍳 Информация о заведении')
+b2 = KeyboardButton('🎁 Акции и скидки')
+b3 = KeyboardButton('🍰 Меню')
+b4 = KeyboardButton('✅ Корзина')
+b5 = KeyboardButton('💚 Мои данные')
+kb_client = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+kb_client.add(b5, b2).add(b3, b4).row(b1)
+
+d1 = InlineKeyboardButton('+', callback_data= f'+ ')
+d2 = InlineKeyboardButton('-', callback_data= f'- ')
+d3 = InlineKeyboardButton('Корзина', callback_data= f'Кор ')
+d4 = InlineKeyboardButton('Очистить корзину', callback_data= f'CLE ')
+inkb_client = InlineKeyboardMarkup(resize_keyboard=True)
+inkb_client.row(d1, d2).row(d3, d4)
+
+d1 = InlineKeyboardButton('Изм имя', callback_data= f'Изменить имя')
+d2 = InlineKeyboardButton('Изм номер', callback_data= f'Изменить номер')
+d3 = InlineKeyboardButton('Изм адрес', callback_data= f'Изменить адрес')
+d4 = InlineKeyboardButton('Изм комментарий к заказу', callback_data= f'Изменить комментарий к заказу')
+inkb_client2 = InlineKeyboardMarkup(resize_keyboard=True)
+inkb_client2.row(d1, d2, d3).row(d4)
+
+y1 = KeyboardButton('Доставка курьером')
+y2 = KeyboardButton('Самовывоз')
+y3 = KeyboardButton('Ввести другое время обработки заказа')
+y4 = KeyboardButton('Главное меню')
+kb_client_obtaining = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+kb_client_obtaining.row(y1, y2).row(y3, y4)
+
+t1 = KeyboardButton('Наличными')
+t2 = KeyboardButton('Сбербанк')
+t3 = KeyboardButton('Ввести другое количество персон')
+t4 = KeyboardButton('Выбрать другой способ получения')
+t5 = KeyboardButton('Главное меню')
+kb_client_pay = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+kb_client_pay.row(t1, t2).row(t3, t4).row(t5)
+
+c1 = KeyboardButton('Оформить заказ')
+c2 = KeyboardButton('Изменить мои данные')
+c3 = KeyboardButton('Очистить корзину')
+c4 = KeyboardButton('Главное меню')
+kb_client4 = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+kb_client4.add(c1, c3, c2).row(c4)
+
+n1 = KeyboardButton('Как можно скорее')
+n2 = KeyboardButton('Ко времени')
+n3 = KeyboardButton('Ввести другое количество персон')
+n4 = KeyboardButton('Главное меню')
+kb_client_time_order = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+kb_client_time_order.add(n1, n2, n4).row(n3)
