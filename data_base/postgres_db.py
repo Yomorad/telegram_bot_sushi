@@ -19,19 +19,14 @@ def sql_start():
     cur.execute('CREATE TABLE IF NOT EXISTS cart (id SERIAL PRIMARY KEY, user_id INT, product_id INT, count INT)')
     cur.execute('CREATE TABLE IF NOT EXISTS categories (category_name TEXT, category_id SERIAL PRIMARY KEY, availability_cat INTEGER)')
     cur.execute('CREATE TABLE IF NOT EXISTS orders_user (id SERIAL PRIMARY KEY, id_order INTEGER, user_id INTEGER, cart TEXT, order_date TEXT, receiving TEXT, status TEXT, payment TEXT, commentary TEXT)')
+    base.commit()
 
+def sql_add_start_date():
     # здесь вводим исходные данные бд для работоспособности
-    # restaurant_1 = ('1','Аша 18:00-23:00', 'AgACAgIAAxkBAAIUDWQ7JK9TKJo2QEqkqkLUMzU10-qbAAKtyDEbHj_ZSVa2kq2QMjf7AQADAgADcwADLwQ', 'туту', '200', '1150', '1', 'У нас много заказов, заказывайте завтра! Ок?)')
-    # cur.execute("UPDATE restaurant SET id = %s, location_time = %s, img = %s, description= %s, price_obtain= %s, limit_price = %s, availability = %s, availability_mess =%s", restaurant_1)
     cur.execute('INSERT INTO restaurant (location_time, img, description, price_obtain, limit_price, availability, availability_mess) VALUES (%s, %s, %s, %s, %s, %s, %s)',
                 ('Аша 18:00-23:00', 'AgACAgIAAxkBAAIUDWQ7JK9TKJo2QEqkqkLUMzU10-qbAAKtyDEbHj_ZSVa2kq2QMjf7AQADAgADcwADLwQ', 'туту', '200', '1150', '1', 'У нас много заказов, заказывайте завтра! Ок?)'))
-    # promotion_1 = ('AgACAgIAAxkBAAIUDWQ7JK9TKJo2QEqkqkLUMzU10-qbAAKtyDEbHj_ZSVa2kq2QMjf7AQADAgADcwADLwQ', '1', 'туту')
-    # cur.execute( "UPDATE promotion SET img = %s, name = %s, description= %s", promotion_1)
     cur.execute('INSERT INTO promotion (img, name, description) VALUES (%s, %s, %s)', ('AgACAgIAAxkBAAIUDWQ7JK9TKJo2QEqkqkLUMzU10-qbAAKtyDEbHj_ZSVa2kq2QMjf7AQADAgADcwADLwQ', '0', 'туту'))
-    # anonce_1 = ('AgACAgIAAxkBAAIUDWQ7JK9TKJo2QEqkqkLUMzU10-qbAAKtyDEbHj_ZSVa2kq2QMjf7AQADAgADcwADLwQ', 'тут тут')
-    # cur.execute("UPDATE  anonce SET img = %s, description= %s ", anonce_1)
     cur.execute('INSERT INTO anonce(img, description) VALUES (%s, %s)', ('AgACAgIAAxkBAAIUDWQ7JK9TKJo2QEqkqkLUMzU10-qbAAKtyDEbHj_ZSVa2kq2QMjf7AQADAgADcwADLwQ', 'тут тут'))
-
     base.commit()
 
 async def sql_start21():
