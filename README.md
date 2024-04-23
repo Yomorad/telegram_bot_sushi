@@ -1,4 +1,4 @@
-<h1 align="center">Hi there, This is a telegram bot for an online store.
+<h1 align="center">Hi there, This is a telegram bot for an online store
 <img src="https://github.com/Yomorad/yomorad/blob/main/icons/pantsu-konosuba.gif" height="90"/></h1>
 
 ### Телеграмм бот для онлайн-магазина
