@@ -5,13 +5,13 @@ from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram import types, Dispatcher
 from create_bot import dp, bot
 from aiogram.dispatcher.filters import Text
-from data_base import postgres_db
+from database import sqlrequests
 from keyboards import admin_kb, kb_client
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import datetime, random, pytz
 
 from config import Config
-ID = Config.admin_ids
+ID = Config.admin_id
 
 #создаём класс наследующий Statesgroup, запускаем атрибуты state для FSMашины
 class FSMadmin(StatesGroup):
@@ -62,7 +62,7 @@ async def change_pos_menu2(message: types.Message):
     if message.from_user.id == ID:
         try:
             msg_for_name_categories = 'Список категорий:\n'
-            data = await postgres_db.get_categories_name()
+            data = await sqlrequests.get_categories_name()
             for i in data:
                 msg_for_name_categories += f'\n{i}'
             msg_for_name_categories += '\n\nВведи название категории, к которой будет добавлена позиция: \n(Без лишних символов, типо пробела, только так, как записана категория выше)\nили "Отмена"'
@@ -77,17 +77,17 @@ async def hange_categories_add_end(message: types.Message, state: FSMContext):
     if message.from_user.id == ID:
         name_cat = message.text
         data_cat_name = 'Список категорий:\n\n'
-        for ret in await postgres_db.get_all_categories():
+        for ret in await sqlrequests.get_all_categories():
             data_cat_name += f'{ret[0]}\n'
         data_cat_dict = {}
-        for s in await postgres_db.get_all_categories():
+        for s in await sqlrequests.get_all_categories():
             data_cat_dict[s[0]] = s[1]
         if name_cat in data_cat_name:
             key = name_cat
             number_cat_pos = data_cat_dict[key]
             str1 = list('123456789')
             data_products_id = 'Список product_id:\n\n'
-            for ret in await postgres_db.sql_read2_products():
+            for ret in await sqlrequests.sql_read2_products():
                 data_products_id += f'{ret[1]}\n'
             random.shuffle(str1)
             product_id = ''.join([random.choice(str1) for x in range(5)])
@@ -153,7 +153,7 @@ async def load_price(message: types.Message, state: FSMContext):
         async with state.proxy() as data:
             data['price'] = float(message.text)
             data['availability'] = 1
-        await postgres_db.sql_add_command_products(state)
+        await sqlrequests.sql_add_command_products(state)
         await state.finish()
         await message.reply('Добавление позиции завершено')
 
@@ -161,7 +161,7 @@ async def load_price(message: types.Message, state: FSMContext):
 async def change_pos_menu(message: types.Message):
     if message.from_user.id == ID:
         await bot.send_message(message.chat.id, 'Переходим к стоп листу позиций')
-        read = await postgres_db.get_all_products()
+        read = await sqlrequests.get_all_products()
         for ret in read:
             if f'{ret[7]}'==str(1):
                 availability = 'Включен'
@@ -173,25 +173,25 @@ async def change_pos_menu(message: types.Message):
 
 @dp.callback_query_handler(lambda x: x.data and x.data.startswith('Включить позицию '))
 async def callback_turn_on_products(callback_query: types.CallbackQuery):
-    await postgres_db.sql_turn_on_products(callback_query.data.replace('Включить позицию ', ''))
+    await sqlrequests.sql_turn_on_products(callback_query.data.replace('Включить позицию ', ''))
     await callback_query.answer(text=f'{callback_query.data.replace("Включить позицию ", "")} включена.', show_alert=True)
 
 @dp.callback_query_handler(lambda x: x.data and x.data.startswith('Выключить позицию '))
 async def callback_turn_off_products(callback_query: types.CallbackQuery):
-    await postgres_db.sql_turn_off_products(callback_query.data.replace('Выключить позицию ', ''))
+    await sqlrequests.sql_turn_off_products(callback_query.data.replace('Выключить позицию ', ''))
     await callback_query.answer(text=f'{callback_query.data.replace("Выключить позицию ", "")} выключена.', show_alert=True)
 
 '''*********************************************************'''
 
 @dp.callback_query_handler(lambda x: x.data and x.data.startswith('del_pos'))
 async def del_callback_run(callback_query: types.CallbackQuery):
-    await postgres_db.sql_delete_command_products(callback_query.data.replace('del_pos', ''))
+    await sqlrequests.sql_delete_command_products(callback_query.data.replace('del_pos', ''))
     await callback_query.answer(text=f'{callback_query.data.replace("del", "")} удалена.', show_alert=True)
 
 @dp.message_handler(commands=['Удалить_позицию_меню'])
 async def delete_item(message: types.Message):
     if message.from_user.id == ID:
-        read = await postgres_db.sql_read2_products()
+        read = await sqlrequests.sql_read2_products()
         for ret in read:
             await bot.send_photo(message.from_user.id, ret[2], f'{ret[3]}\nОписание: {ret[4]}\nЦена {ret[5]}')
             await bot.send_message(message.from_user.id, text='^^^', reply_markup=InlineKeyboardMarkup().add(InlineKeyboardButton(f'Удалить {ret[3]}', callback_data=f'del_pos {ret[0]}')))
@@ -211,13 +211,13 @@ async def change_categories(message: types.Message):
 
 @dp.callback_query_handler(lambda x: x.data and x.data.startswith('del_cat '))
 async def del_callback_cat_del(callback_query: types.CallbackQuery):
-    await postgres_db.sql_delete_category(callback_query.data.replace('del_cat ', ''))
+    await sqlrequests.sql_delete_category(callback_query.data.replace('del_cat ', ''))
     await callback_query.answer(text=f'{callback_query.data.replace("del_cat ", "")} удален.', show_alert=True)
 
 @dp.message_handler(commands=['Удалить_категорию'])
 async def change_categories_del(message: types.Message):
     if message.from_user.id == ID:
-        data = await postgres_db.get_all_categories()
+        data = await sqlrequests.get_all_categories()
         for i in data:
             await bot.send_message(message.from_user.id, i[0])
             await bot.send_message(message.from_user.id, text='^^^', reply_markup=InlineKeyboardMarkup().add(InlineKeyboardButton(f'Удалить {i[0]}', callback_data=f'del_cat {i[0]}')))
@@ -226,7 +226,7 @@ async def change_categories_del(message: types.Message):
 async def change_cat_menu(message: types.Message):
     if message.from_user.id == ID:
         await bot.send_message(message.chat.id, 'Переходим к стоп листу позиций')
-        read = await postgres_db.get_all_categories()
+        read = await sqlrequests.get_all_categories()
         for ret in read:
             if f'{ret[2]}' == str(1):
                 availability_cat = f'Включен'
@@ -237,12 +237,12 @@ async def change_cat_menu(message: types.Message):
                                                                                                              InlineKeyboardButton(f'Выключить {ret[0]}', callback_data=f'Выключить категорию {ret[1]}')))
 @dp.callback_query_handler(lambda x: x.data and x.data.startswith('Включить категорию '))
 async def callback_turn_on_category(callback_query: types.CallbackQuery):
-    await postgres_db.sql_turn_on_category(callback_query.data.replace('Включить категорию ', ''))
+    await sqlrequests.sql_turn_on_category(callback_query.data.replace('Включить категорию ', ''))
     await callback_query.answer(text=f'{callback_query.data.replace("Включить категорию ", "")} включена.', show_alert=True)
 
 @dp.callback_query_handler(lambda x: x.data and x.data.startswith('Выключить категорию '))
 async def callback_turn_off_category(callback_query: types.CallbackQuery):
-    await postgres_db.sql_turn_off_category(callback_query.data.replace('Выключить категорию ', ''))
+    await sqlrequests.sql_turn_off_category(callback_query.data.replace('Выключить категорию ', ''))
     await callback_query.answer(text=f'{callback_query.data.replace("Выключить категорию ", "")} выключена.', show_alert=True)
 
 @dp.message_handler(commands=['Добавить_категорию'], state=None)
@@ -250,7 +250,7 @@ async def change_categories_add(message: types.Message):
     if message.from_user.id == ID:
         try:
             msg_for_name_categories = 'Список категорий:\n\n'
-            for i in await postgres_db.get_categories_name():
+            for i in await sqlrequests.get_categories_name():
                 msg_for_name_categories += f'{i[0]}\n'
             msg_for_name_categories += '\nВведи название :\n(Без лишних символов, типо пробела на конце)\nили "Отмена"'
             await message.answer(msg_for_name_categories)
@@ -265,7 +265,7 @@ async def hange_categories_add_end (message: types.Message, state: FSMContext):
         async with state.proxy() as data:
             data['categories_name'] = message.text
             data['availability_cat'] = 1
-        await postgres_db.sql_add_categories(state)
+        await sqlrequests.sql_add_categories(state)
         await state.finish()
         await message.reply('Новая категория внесена')
 
@@ -280,7 +280,7 @@ async def change_categories(message: types.Message):
 async def confirm_delivery(message: types.Message):
     if message.from_user.id == ID:
         data_orders_client_id_n = ''
-        for ret in await postgres_db.sql_read_id_orders_user_not_deliv():
+        for ret in await sqlrequests.sql_read_id_orders_user_not_deliv():
             data_orders_client_id_n += f'{ret[1]}\n'
         msg_for_name_categories = f'На данный момент есть следующие заказы, ожидающие подтверждения:\n{data_orders_client_id_n}\n\nВведи id заказа или "Отмена": \n(Без лишних символов, типо пробела)'
         await message.answer(msg_for_name_categories)
@@ -291,16 +291,16 @@ async def confirm_delivery_end(message: types.Message, state: FSMContext):
     if message.from_user.id == ID:
         order_client_id_1 = message.text
         data_orders_client_id = 'Список id заказов:\n\n'
-        for ret in await postgres_db.sql_read_id_orders_user():
+        for ret in await sqlrequests.sql_read_id_orders_user():
             data_orders_client_id += f'{ret[1]}\n'
         if order_client_id_1 in data_orders_client_id:
             tz_russia_asha = pytz.timezone("Asia/Yekaterinburg")
             dt_russia_asha = str(datetime.datetime.now(tz_russia_asha))
             receiving = dt_russia_asha
-            await postgres_db.sql_update_status_orders_user(order_client_id_1, receiving)
+            await sqlrequests.sql_update_status_orders_user(order_client_id_1, receiving)
             await message.reply('Доставка заказ подтверждена')
             id_client= ''
-            for ret in await postgres_db.sql_get_user_id_orders_client(order_client_id_1):
+            for ret in await sqlrequests.sql_get_user_id_orders_client(order_client_id_1):
                 id_client = f'{ret[2]}'
             await bot.send_message(id_client, f'Приятного аппетита! Как вам заказ?\nМожете написать свой отзыв в нашей группе ВК! (ссылка)')
             await state.finish()
@@ -320,7 +320,7 @@ async def comment_order2(message: types.Message, state: FSMContext):
     if message.from_user.id == ID:
         order_client_id_1 = message.text
         data_orders_client_id = 'Список id заказов:\n\n'
-        for ret in await postgres_db.sql_read_id_orders_user():
+        for ret in await sqlrequests.sql_read_id_orders_user():
             data_orders_client_id += f'{ret[1]}\n'
         if order_client_id_1 in data_orders_client_id:
             async with state.proxy() as data:
@@ -338,7 +338,7 @@ async def comment_order3(message: types.Message, state: FSMContext):
             data['comment_order_client_id'] = message.text
         id_order = data['order_client_id_n']
         commentary = data['comment_order_client_id']
-        await postgres_db.sql_update_comment_orders_user(id_order, commentary)
+        await sqlrequests.sql_update_comment_orders_user(id_order, commentary)
         await message.reply('Комментарий добавлен')
         await state.finish()
 
@@ -354,16 +354,16 @@ async def client_orders_viewing2(message: types.Message, state: FSMContext):
     if message.from_user.id == ID:
         cl_phone = message.text
         data_cl_numbers = 'Список номеров:\n\n'
-        for ret in await postgres_db.sql_read_phone_numbers_user():
+        for ret in await sqlrequests.sql_read_phone_numbers_user():
             data_cl_numbers += f'{ret[3]}\n'
         data_cat_dict = {}
-        for s in await postgres_db.sql_read_phone_numbers_user():
+        for s in await sqlrequests.sql_read_phone_numbers_user():
             data_cat_dict[s[3]] = s[1]
         if cl_phone in data_cl_numbers:
             key = cl_phone
             id_clients = data_cat_dict[key]
             data_products_id = f'ID клиента {id_clients}\n\nСписок заказов:\n\n'
-            for ret in await postgres_db.sql_get_user_id_orders(id_clients):
+            for ret in await sqlrequests.sql_get_user_id_orders(id_clients):
                 data_products_id += f'id заказа: {ret[1]}\nСтатус заказа: {ret[6]}\nДата заказа: {ret[4]}\nОплата: {ret[7]}\nКомментарий от модератора: {ret[8]}\n\n'
             await bot.send_message(message.chat.id, data_products_id)
             await message.reply('Выгрузка заказов окончена')
@@ -384,10 +384,10 @@ async def look_order2(message: types.Message, state: FSMContext):
     if message.from_user.id == ID:
         order_client_id_1 = message.text
         data_orders_client_id = 'Список id заказов:\n\n'
-        for ret in await postgres_db.sql_read_id_orders_user():
+        for ret in await sqlrequests.sql_read_id_orders_user():
             data_orders_client_id += f'{ret[1]}\n'
         if order_client_id_1 in data_orders_client_id:
-            for ret in await postgres_db.sql_get_user_id_orders_client(order_client_id_1):
+            for ret in await sqlrequests.sql_get_user_id_orders_client(order_client_id_1):
                 data_products_id = f'id клиента: {ret[2]}\nid заказа: {ret[1]}\n\nКорзина клиента:\n\n {ret[3]}\n\nДата и время создания заказа: {ret[4]}\nДата и время получения заказа: {ret[5]}\nСтатус заказа: {ret[6]}\nОплата: {ret[7]}\nКомментарий от модератора: {ret[8]}\n\n\n'
             await bot.send_message(message.chat.id, data_products_id)
             await message.reply('Выгрузка заказа окончена')
@@ -436,19 +436,19 @@ async def load_description_promotion(message: types.Message, state: FSMContext):
     if message.from_user.id == ID:
         async with state.proxy() as data:
             data['description_promotion'] = message.text
-        await postgres_db.sql_add_command_promotion(state)
+        await sqlrequests.sql_add_command_promotion(state)
         await state.finish()
         await message.reply('Информация об акциях и скидках обновлена')
 
 @dp.callback_query_handler(lambda x: x.data and x.data.startswith('fel '))
 async def del_callback_run_promotion(callback_query: types.CallbackQuery):
-    await postgres_db.sql_delete_command_promotion(callback_query.data.replace('fel ', ''))
+    await sqlrequests.sql_delete_command_promotion(callback_query.data.replace('fel ', ''))
     await callback_query.answer(text=f'{callback_query.data.replace("fel ", "")} удалена.', show_alert=True)
 
 @dp.message_handler(commands=['Удалить_акцию_скидку'])
 async def delete_item_promotion(message: types.Message):
     if message.from_user.id == ID:
-        read = await postgres_db.sql_read2_promotion()
+        read = await sqlrequests.sql_read2_promotion()
         for ret in read:
             await bot.send_photo(message.from_user.id, ret[0], f'{ret[1]}\nОписание: {ret[2]}')
             await bot.send_message(message.from_user.id, text='^^^', reply_markup=InlineKeyboardMarkup().add(InlineKeyboardButton(f'Удалить {ret[1]}', callback_data=f'fel {ret[1]}')))
@@ -463,19 +463,19 @@ async def stop_orders(message: types.Message):
 @dp.message_handler(commands='Выключить_заказы')
 async def stop_orders(message: types.Message):
     if message.from_user.id == ID:
-        await postgres_db.sql_stop_orders()
+        await sqlrequests.sql_stop_orders()
         await bot.send_message(message.chat.id, 'Заведение выключено и теперь будет отвечать сообщением, которое вы можете изменить "Сообщение_для_пользователя"')
 
 @dp.message_handler(commands='Включить_заказы')
 async def stop_orders(message: types.Message):
     if message.from_user.id == ID:
-        await postgres_db.sql_start_orders()
+        await sqlrequests.sql_start_orders()
         await bot.send_message(message.chat.id, 'Заведение включено и работает в стандартном режиме')
 
 @dp.message_handler(commands='Сообщение_для_пользователя', state=None)
 async def start_restaurant_mess(message: types.Message):
     if message.from_user.id == ID:
-        for ret in await postgres_db.sql_read_restaurant_for_availability():
+        for ret in await sqlrequests.sql_read_restaurant_for_availability():
             mess_availability = f'{ret[7]}'
         await bot.send_message(message.chat.id, f'На данный момент сообщение для пользователя следующее:\n\n{mess_availability}')
         await FSMadmin.restaurant_availability.set()
@@ -487,7 +487,7 @@ async def end_restaurant_mess (message: types.Message, state: FSMContext):
         async with state.proxy() as data:
             data['restaurant_availability'] = message.text
         durostb = message.text
-        await postgres_db.sql_add_mess_for_availability(durostb)
+        await sqlrequests.sql_add_mess_for_availability(durostb)
         await state.finish()
         await message.reply('Сообщение для пользователя изменено!')
 
@@ -512,7 +512,7 @@ async def end_restaurant (message: types.Message, state: FSMContext):
         async with state.proxy() as data:
             data['restaurant_f'] = message.text
         location_time = message.text
-        await postgres_db.sql_add_restaurant(location_time)
+        await sqlrequests.sql_add_restaurant(location_time)
         await state.finish()
         await message.reply('Информация о заведении изменена')
 
@@ -540,7 +540,7 @@ async def load_description_restaurant(message: types.Message, state: FSMContext)
             data['description_restaurant'] = message.text
         photo_restaurant_pickup = data['photo_restaurant_pickup']
         description_restaurant = data['description_restaurant']
-        await postgres_db.sql_add_restaurant_pickup(photo_restaurant_pickup, description_restaurant)
+        await sqlrequests.sql_add_restaurant_pickup(photo_restaurant_pickup, description_restaurant)
         await state.finish()
         await message.reply('Информация о самовывозе изменена')
 
@@ -558,7 +558,7 @@ async def end_restaurant_price_obtain (message: types.Message, state: FSMContext
         async with state.proxy() as data:
             data['restaurant_price_obtain'] = message.text
         restaurant_price_obtain = data['restaurant_price_obtain']
-        await postgres_db.sql_add_restaurant_price_obtain(restaurant_price_obtain)
+        await sqlrequests.sql_add_restaurant_price_obtain(restaurant_price_obtain)
         await state.finish()
         await message.reply('Информация о цене доставки изменена')
 
@@ -576,7 +576,7 @@ async def end_restaurant_limit_price (message: types.Message, state: FSMContext)
         async with state.proxy() as data:
             data['restaurant_limit_price'] = message.text
         restaurant_limit_price = data['restaurant_limit_price']
-        await postgres_db.sql_add_restaurant_limit_price(restaurant_limit_price)
+        await sqlrequests.sql_add_restaurant_limit_price(restaurant_limit_price)
         await state.finish()
         await message.reply('Информация о пределе цены бесплатной доставки изменена')
 
@@ -608,7 +608,7 @@ async def load_description_anonce(message: types.Message, state: FSMContext):
     if message.from_user.id == ID:
         async with state.proxy() as data:
             data['description_anonce'] = message.text
-        await postgres_db.sql_add_command_anonce(state)
+        await sqlrequests.sql_add_command_anonce(state)
         await state.finish()
         await message.reply('Информация обновлена')
 
@@ -616,7 +616,7 @@ async def load_description_anonce(message: types.Message, state: FSMContext):
 @dp.message_handler(commands='Объявить_или_удалить_объявление')
 async def start_anonce_or_del(message: types.Message):
     if message.from_user.id == ID:
-        read = await postgres_db.sql_read2_anonce()
+        read = await sqlrequests.sql_read2_anonce()
         for ret in read:
             await bot.send_photo(message.from_user.id, ret[0], f'{ret[1]}')
             await bot.send_message(message.from_user.id, text='^^^', reply_markup=InlineKeyboardMarkup().add(
@@ -626,9 +626,9 @@ async def start_anonce_or_del(message: types.Message):
 @dp.callback_query_handler(lambda x: x.data and x.data.startswith('sel '))
 async def anonce_handler(message: types.Message):
     if message.from_user.id == ID:
-        sam = await postgres_db.sql_read2_anonce()
+        sam = await sqlrequests.sql_read2_anonce()
         data_users = []
-        for s in await postgres_db.sql_read3_users():
+        for s in await sqlrequests.sql_read3_users():
             data_users.append(s)
         for row in data_users:
             try:
@@ -640,7 +640,7 @@ async def anonce_handler(message: types.Message):
 
 @dp.callback_query_handler(lambda x: x.data and x.data.startswith('tel '))
 async def del_callback_run_anonce(callback_query: types.CallbackQuery):
-    await postgres_db.sql_delete_command_anonce(callback_query.data.replace('tel ', ''))
+    await sqlrequests.sql_delete_command_anonce(callback_query.data.replace('tel ', ''))
     await callback_query.answer(text=f'{callback_query.data.replace("tel ", "")} удалена.', show_alert=True)
 
 '''********************Кнопка перевода на клиентскую менюшку********************************'''

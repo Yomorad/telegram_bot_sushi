@@ -4,7 +4,7 @@ from aiogram.dispatcher.filters import Text
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from create_bot import dp, bot
 from keyboards import client_kb
-from data_base import postgres_db
+from database import sqlrequests
 from aiogram.utils.callback_data import CallbackData
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton,LabeledPrice, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 from config import Config
@@ -31,7 +31,7 @@ async def commands_start(message: types.Message):
                f'\n 👍 - быстрая доставка' \
                f'\n 👍 - приветливый персонал и комфортное обслуживание!' \
                f'\n 👇 Ознакомьтесь с нашим меню!'
-        await postgres_db.sql_start2(message)
+        await sqlrequests.sql_start2(message)
         await message.bot.send_message(message.from_user.id, mess, reply_markup=client_kb.kb_client)
     except:
         await message.reply('Общение с ботом через ЛС, напишите ему \nhttps://t.me/Sushi_for_everybody_bot')
@@ -40,7 +40,7 @@ async def commands_start(message: types.Message):
 @rate_limit(limit=5, key = '👨‍🍳 Информация о заведении')
 #@dp.message_handler(text='👨‍🍳 Информация о заведении')
 async def commands_location(message: types.Message):
-    await postgres_db.sql_read_restaurant(message)
+    await sqlrequests.sql_read_restaurant(message)
 
 '''*****************************************Логика меню*************************************************'''
 cb = CallbackData('btn', 'type', 'product_id', 'category_id')
@@ -49,7 +49,7 @@ cb = CallbackData('btn', 'type', 'product_id', 'category_id')
 async def gen_products(data, user_id):
     keyboard = InlineKeyboardMarkup()
     for i in data:
-        count = await postgres_db.get_count_in_cart(user_id, i[1])
+        count = await sqlrequests.get_count_in_cart(user_id, i[1])
         count = 0 if not count else sum(j[0] for j in count)
         keyboard.add(InlineKeyboardButton(text=f'{i[3]}: {i[5]}p - {count}шт', callback_data=f'btn:plus:{i[1]}:{i[6]}'))
         keyboard.add(InlineKeyboardButton(text='🔽 Убавить' , callback_data=f'btn:minus:{i[1]}:{i[6]}'),
@@ -60,11 +60,11 @@ async def gen_products(data, user_id):
 @rate_limit(limit=5, key = '🍰 Меню')
 #@dp.message_handler(text='🍰 Меню')
 async def commands_products(message: types.Message):
-    for ret in await postgres_db.sql_read_restaurant_for_availability():
+    for ret in await sqlrequests.sql_read_restaurant_for_availability():
         prov_availability = f'{ret[6]}'
         mess_availability = f'{ret [7]}'
     if str(prov_availability) == '1':
-        data = await postgres_db.get_categories()
+        data = await sqlrequests.get_categories()
         keyboard = InlineKeyboardMarkup()
         for i in data:
             keyboard.add(InlineKeyboardButton(text=f'{i[0]}', callback_data=f'btn:category:-:{i[1]}'))
@@ -74,9 +74,9 @@ async def commands_products(message: types.Message):
 
 @dp.callback_query_handler(cb.filter(type='category'))
 async def goods(callback_query: types.CallbackQuery, callback_data: dict):
-    data = await postgres_db.get_products(callback_data.get('category_id'))
+    data = await sqlrequests.get_products(callback_data.get('category_id'))
     for ret in data:
-        count = await postgres_db.get_count_in_cart(callback_query.message.chat.id, ret[1])
+        count = await sqlrequests.get_count_in_cart(callback_query.message.chat.id, ret[1])
         count = 0 if not count else sum(j[0] for j in count)
         k1 = InlineKeyboardButton(text=f'{ret[3]}: {ret[5]}p - {count}шт', callback_data=f'btn:plus:{ret[1]}:{ret[6]}')
         k2 = InlineKeyboardButton(text='🔽 Убавить' , callback_data=f'btn:minus:{ret[1]}:{ret[6]}')
@@ -89,7 +89,7 @@ async def goods(callback_query: types.CallbackQuery, callback_data: dict):
 
 @dp.callback_query_handler(cb.filter(type='back'))
 async def back(callback_query: types.CallbackQuery):
-    data = await postgres_db.get_categories()
+    data = await sqlrequests.get_categories()
     keyboard = InlineKeyboardMarkup()
     for i in data:
         keyboard.add(InlineKeyboardButton(text=f'{i[0]}', callback_data=f'btn:category:-:{i[1]}'))
@@ -98,62 +98,62 @@ async def back(callback_query: types.CallbackQuery):
 @dp.callback_query_handler(cb.filter(type='minus'))
 async def minus(callback_query: types.CallbackQuery, callback_data: dict):
     product_id = callback_data.get('product_id')
-    count_in_cart = await postgres_db.get_count_in_cart(callback_query.message.chat.id, product_id)
+    count_in_cart = await sqlrequests.get_count_in_cart(callback_query.message.chat.id, product_id)
     if not count_in_cart or count_in_cart[0][0] == 0:
         await callback_query.message.answer('Товар в  корзине отсутсвует!')
         return 0
     elif count_in_cart[0][0] == 1:
-        await postgres_db.remove_one_item(product_id, callback_query.message.chat.id)
+        await sqlrequests.remove_one_item(product_id, callback_query.message.chat.id)
     else:
-        await postgres_db.change_count(count_in_cart[0][0] - 1, product_id, callback_query.message.chat.id)
-    data = await postgres_db.get_products_1(callback_data.get('category_id'), callback_data.get('product_id'))
+        await sqlrequests.change_count(count_in_cart[0][0] - 1, product_id, callback_query.message.chat.id)
+    data = await sqlrequests.get_products_1(callback_data.get('category_id'), callback_data.get('product_id'))
     keyboard = await gen_products(data, callback_query.message.chat.id)
     await callback_query.message.edit_reply_markup(keyboard)
 
 @dp.callback_query_handler(cb.filter(type='plus'))
 async def plus(callback_query: types.CallbackQuery, callback_data: dict):
     product_id = callback_data.get('product_id')
-    count_in_cart = await postgres_db.get_count_in_cart(callback_query.message.chat.id, product_id)
+    count_in_cart = await sqlrequests.get_count_in_cart(callback_query.message.chat.id, product_id)
     if not count_in_cart or count_in_cart[0][0] == 0:
-        await postgres_db.add_to_cart(callback_query.message.chat.id, product_id)
+        await sqlrequests.add_to_cart(callback_query.message.chat.id, product_id)
         await callback_query.message.answer('Добавил!')
     else:
-        await postgres_db.change_count(count_in_cart[0][0] + 1, product_id, callback_query.message.chat.id)
-    data = await postgres_db.get_products_1(callback_data.get('category_id'), callback_data.get('product_id'))
+        await sqlrequests.change_count(count_in_cart[0][0] + 1, product_id, callback_query.message.chat.id)
+    data = await sqlrequests.get_products_1(callback_data.get('category_id'), callback_data.get('product_id'))
     keyboard = await gen_products(data, callback_query.message.chat.id)
     await callback_query.message.edit_reply_markup(keyboard)
 
 @dp.callback_query_handler(cb.filter(type='del'))
 async def delete(callback_query: types.CallbackQuery, callback_data: dict):
     product_id = callback_data.get('product_id')
-    count_in_cart = await postgres_db.get_count_in_cart(callback_query.message.chat.id, product_id)
+    count_in_cart = await sqlrequests.get_count_in_cart(callback_query.message.chat.id, product_id)
     if not count_in_cart:
         await callback_query.message.answer('Товар в корзине отсутствует!')
         return 0
     else:
-        await postgres_db.remove_one_item(product_id, callback_query.message.chat.id)
-    data = await postgres_db.get_products_1(callback_data.get('category_id'), callback_data.get('product_id'))
+        await sqlrequests.remove_one_item(product_id, callback_query.message.chat.id)
+    data = await sqlrequests.get_products_1(callback_data.get('category_id'), callback_data.get('product_id'))
     keyboard = await gen_products(data, callback_query.message.chat.id)
     await callback_query.message.edit_reply_markup(keyboard)
 
 @dp.callback_query_handler(lambda x: x.data and x.data.startswith('Очистить корзину'))
 @dp.message_handler(text='Очистить корзину')
 async def empty_cart(message: types.Message):
-    await postgres_db.empty_cart(message.chat.id)
+    await sqlrequests.empty_cart(message.chat.id)
     await message.answer('Корзина пуста')
 
 @rate_limit(limit=5, key = '✅ Корзина')
 #@dp.message_handler(text='✅ Корзина')
 async def cart(message: types.Message):
-    for ret in await postgres_db.sql_read_restaurant_for_availability():
+    for ret in await sqlrequests.sql_read_restaurant_for_availability():
         prov_availability = f'{ret[6]}'
         mess_availability = f'{ret [7]}'
     if str(prov_availability) == '1':
-        data = await postgres_db.get_cart(message.chat.id)
+        data = await sqlrequests.get_cart(message.chat.id)
         new_data = []
         a = []
         for i in range(len(data)):
-            new_data.append(await postgres_db.get_user_product(data[i][2]))
+            new_data.append(await sqlrequests.get_user_product(data[i][2]))
         new_data = [new_data[i][0] for i in range(len(new_data))]
         a = f'Корзина:\n'
         s = 0
@@ -161,7 +161,7 @@ async def cart(message: types.Message):
             a += f'\n{new_data[i][3]} \nКоличество: {data[i][3]}\nЦена: {new_data[i][5]} x {data[i][3]} = {new_data[i][5]  * data[i][3]}\n'
             s += new_data[i][5]  * data[i][3]
         a += f'\nИтого: {s} рублей'
-        data = await postgres_db.get_myself(message.chat.id)
+        data = await sqlrequests.get_myself(message.chat.id)
         for ret in data:
             a +=f'\nВаши данные:\n\nИмя: {ret[2]}\nНомер телефона: {ret[3]}\nАдрес: {ret[4]}\nКомментарий к заказу: {ret[5]}'
         await bot.send_message(message.chat.id, a, reply_markup=client_kb.kb_client4)
@@ -173,11 +173,11 @@ async def cart(message: types.Message):
 @dp.message_handler(text = 'Ввести другое количество персон', state=None)
 @dp.message_handler(text = 'Оформить заказ', state=None)
 async def order_start(message: types.Message):
-    for ret in await postgres_db.sql_read_restaurant_for_availability():
+    for ret in await sqlrequests.sql_read_restaurant_for_availability():
         prov_availability = f'{ret[6]}'
         mess_availability = f'{ret [7]}'
     if str(prov_availability) == '1':
-        data = await postgres_db.get_cart(message.chat.id)
+        data = await sqlrequests.get_cart(message.chat.id)
         proverka = 0
         for heru in data:
             proverka += heru[2]
@@ -194,7 +194,7 @@ async def order_start_tools(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data['tools_c'] = message.text
     tools_c = message.text
-    await postgres_db.sql_add_tools_c(tools_c, message.chat.id)
+    await sqlrequests.sql_add_tools_c(tools_c, message.chat.id)
     await state.finish()
     await message.reply('Сохранено')
     await bot.send_message(message.from_user.id, 'Укажите время обработки заказа:', reply_markup=client_kb.kb_client_time_order)
@@ -213,7 +213,7 @@ async def order_start_tools(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data['time_order_c'] = message.text
     time_order_c = message.text
-    await postgres_db.sql_add_time_order(time_order_c, message.chat.id)
+    await sqlrequests.sql_add_time_order(time_order_c, message.chat.id)
     await state.finish()
     await message.reply('Сохранено')
     await bot.send_message(message.from_user.id, 'Выберете способ получения', reply_markup=client_kb.kb_client_obtaining)
@@ -222,7 +222,7 @@ async def order_start_tools(message: types.Message, state: FSMContext):
 @dp.message_handler(text = 'Как можно скорее')
 async def order_start(message: types.Message):
     time_order = 'Как можно скорее'
-    await postgres_db.sql_add_time_order(time_order, message.chat.id)
+    await sqlrequests.sql_add_time_order(time_order, message.chat.id)
     await bot.send_message(message.from_user.id, 'Выберете способ получения', reply_markup=client_kb.kb_client_obtaining)
 
 '''****************************************Способ получения**************************************************'''
@@ -244,13 +244,13 @@ async def order_obtaining_1_2(message: types.Message, state: FSMContext):
         data['adress_c'] = message.text
     adress = message.text
     obtaining = 'Курьером'
-    await postgres_db.sql_add_adress_c2(adress, obtaining, message.chat.id)
+    await sqlrequests.sql_add_adress_c2(adress, obtaining, message.chat.id)
     await state.finish()
     await message.reply('Сохранено')
-    data = await postgres_db.get_cart(message.chat.id)
+    data = await sqlrequests.get_cart(message.chat.id)
     new_data = []
     for i in range(len(data)):
-        new_data.append(await postgres_db.get_user_product(data[i][2]))
+        new_data.append(await sqlrequests.get_user_product(data[i][2]))
     new_data = [new_data[i][0] for i in range(len(new_data))]
     a = f'Корзина:\n'
     s = 0
@@ -260,11 +260,11 @@ async def order_obtaining_1_2(message: types.Message, state: FSMContext):
     limit_price = None
     price_obtaining = None
     gain = 'Курьером'
-    for sert in await postgres_db.sql_get_obtaining(message.chat.id):
+    for sert in await sqlrequests.sql_get_obtaining(message.chat.id):
         obtaining = sert[7]
-    for nerf in await postgres_db.sql_get_pickup_obtaining():
+    for nerf in await sqlrequests.sql_get_pickup_obtaining():
         limit_price = nerf[5]
-    for kart in await postgres_db.sql_get_pickup_obtaining():
+    for kart in await sqlrequests.sql_get_pickup_obtaining():
         price_obtaining = kart[4]
     if gain == obtaining:
         if s >= limit_price:
@@ -279,7 +279,7 @@ async def order_obtaining_1_2(message: types.Message, state: FSMContext):
     a += f'\n\nДоставка: {n} рублей'
     s += n
     a += f'\n\nИтого: {s} рублей'
-    data = await postgres_db.get_myself(message.chat.id)
+    data = await sqlrequests.get_myself(message.chat.id)
     for ret in data:
         a += f'\nВаши данные:\n\nИмя: {ret[2]}\nНомер телефона: {ret[3]}\nАдрес: {ret[4]}\nКомментарий к заказу: {ret[5]}\nПоложить приборы на количество персон: {ret[6]}\n\nСпособ получения: {ret[7]}\n\nВремя получения: {ret[8]}'
         if f'{ret[3]}' == 'None' or f'{ret[3]}' == '':
@@ -290,13 +290,13 @@ async def order_obtaining_1_2(message: types.Message, state: FSMContext):
 @rate_limit(limit=5, key = 'Самовывоз')
 @dp.message_handler(text = 'Самовывоз')
 async def order_obtaining_2(message: types.Message):
-    read = await postgres_db.sql_get_pickup_obtaining()
+    read = await sqlrequests.sql_get_pickup_obtaining()
     for ret in read:
         await bot.send_photo(message.from_user.id, ret[2], f'\n{ret[3]}')
-    data = await postgres_db.get_cart(message.chat.id)
+    data = await sqlrequests.get_cart(message.chat.id)
     new_data = []
     for i in range(len(data)):
-        new_data.append(await postgres_db.get_user_product(data[i][2]))
+        new_data.append(await sqlrequests.get_user_product(data[i][2]))
     new_data = [new_data[i][0] for i in range(len(new_data))]
     a = f'Корзина:\n'
     s = 0
@@ -306,13 +306,13 @@ async def order_obtaining_2(message: types.Message):
     limit_price = None
     price_obtaining = None
     obtaining = 'Самовывоз'
-    await postgres_db.sql_add_obtaining_c2(obtaining, message.chat.id)
+    await sqlrequests.sql_add_obtaining_c2(obtaining, message.chat.id)
     gain = 'Курьером'
-    for sert in await postgres_db.sql_get_obtaining(message.chat.id):
+    for sert in await sqlrequests.sql_get_obtaining(message.chat.id):
         obtaining = sert[7]
-    for nerf in await postgres_db.sql_get_pickup_obtaining():
+    for nerf in await sqlrequests.sql_get_pickup_obtaining():
         limit_price = nerf[5]
-    for kart in await postgres_db.sql_get_pickup_obtaining():
+    for kart in await sqlrequests.sql_get_pickup_obtaining():
         price_obtaining = kart[4]
     if gain == obtaining:
         if s >= limit_price:
@@ -327,7 +327,7 @@ async def order_obtaining_2(message: types.Message):
     a += f'\n\nДоставка: {n} рублей'
     s += n
     a += f'\n\nИтого: {s} рублей\n'
-    data = await postgres_db.get_myself(message.chat.id)
+    data = await sqlrequests.get_myself(message.chat.id)
     for ret in data:
         a += f'\nВаши данные:\n\nИмя: {ret[2]}\nНомер телефона: {ret[3]}\nАдрес: {ret[4]}\nКомментарий к заказу: {ret[5]}\nПоложить приборы на количество персон: {ret[6]}\n\nСпособ получения: {ret[7]}\n\nВремя получения: {ret[8]}'
         if f'{ret[3]}' == 'None' or f'{ret[3]}' == '':
@@ -347,17 +347,17 @@ async def pay_nal(message: types.Message):
 
 @dp.callback_query_handler(lambda x: x.data and x.data.startswith('Отправить заказ'))
 async def del_send_order(callback_query: types.CallbackQuery):
-    data = await postgres_db.get_cart(callback_query.message.chat.id)
+    data = await sqlrequests.get_cart(callback_query.message.chat.id)
     proverka = 0
     for heru in data:
         proverka += heru[2]
     if proverka == 0 or proverka == '' or proverka == 'None':
         await bot.send_message(callback_query.message.chat.id, f'Пожалуйста, добавьте товар в корзину, перед отправлением заказа!')
     else:
-        data = await postgres_db.get_cart(callback_query.message.chat.id)
+        data = await sqlrequests.get_cart(callback_query.message.chat.id)
         new_data = []
         for i in range(len(data)):
-            new_data.append(await postgres_db.get_user_product(data[i][2]))
+            new_data.append(await sqlrequests.get_user_product(data[i][2]))
         new_data = [new_data[i][0] for i in range(len(new_data))]
         a = f'Корзина:\n'
         s = 0
@@ -368,11 +368,11 @@ async def del_send_order(callback_query: types.CallbackQuery):
         limit_price = None
         price_obtaining = None
         gain = 'Курьером'
-        for sert in await postgres_db.sql_get_obtaining(callback_query.message.chat.id):
+        for sert in await sqlrequests.sql_get_obtaining(callback_query.message.chat.id):
             obtaining = sert[7]
-        for nerf in await postgres_db.sql_get_pickup_obtaining():
+        for nerf in await sqlrequests.sql_get_pickup_obtaining():
             limit_price = nerf[5]
-        for kart in await postgres_db.sql_get_pickup_obtaining():
+        for kart in await sqlrequests.sql_get_pickup_obtaining():
             price_obtaining = kart[4]
         if gain == obtaining:
             if s >= limit_price:
@@ -387,7 +387,7 @@ async def del_send_order(callback_query: types.CallbackQuery):
         a += f'\nДоставка: {n} рублей'
         s += n
         a += f'\n\nИтого: {s} рублей'
-        data = await postgres_db.get_myself(callback_query.message.chat.id)
+        data = await sqlrequests.get_myself(callback_query.message.chat.id)
         for ret in data:
             a += f'\n\nВаши данные:\n\nИмя: {ret[2]}\nНомер телефона: {ret[3]}\nАдрес: {ret[4]}\nКомментарий к заказу: {ret[5]}\nПоложить приборы на количество персон: {ret[6]}\n\nСпособ получения: {ret[7]}\n\nВремя получения: {ret[8]}'
         #  получаем время
@@ -396,7 +396,7 @@ async def del_send_order(callback_query: types.CallbackQuery):
         #  генерируем id заказа
         str1 = list('1234567890')
         data_orders_id = 'Список id_order:\n\n'
-        for ret in await postgres_db.sql_read_id_orders_user():
+        for ret in await sqlrequests.sql_read_id_orders_user():
             data_orders_id += f'{ret[1]}\n'
         random.shuffle(str1)
         order_id = ''.join([random.choice(str1) for x in range(7)])
@@ -412,11 +412,11 @@ async def del_send_order(callback_query: types.CallbackQuery):
         payment = 'Нал'
         await bot.send_message(callback_query.message.chat.id, a)
         #  добавляем в бд
-        await postgres_db.sql_add_order_client_nal(user_id, id_order, cart_order, order_date, status, payment)
+        await sqlrequests.sql_add_order_client_nal(user_id, id_order, cart_order, order_date, status, payment)
         # отправляем сообщение модератору: заказ, его номер, и все данные из корзины и данных клиента на данный момент
-        await bot.send_message(Config.admin_ids, f'Заказ {id_order} сформирован, клиент ожидает звонка!\n\n{a}')
+        await bot.send_message(Config.admin_id, f'Заказ {id_order} сформирован, клиент ожидает звонка!\n\n{a}')
         # очищаем корзину
-        await postgres_db.empty_cart(callback_query.message.chat.id)
+        await sqlrequests.empty_cart(callback_query.message.chat.id)
         # отправляем сообщение пользователю: номер заказа, заказ принят, заказ оплачен, ожидайте звонка оператора
         await bot.send_message(callback_query.message.chat.id,
                                f'Заказ {id_order} сохранён и отправлен на рассмотрение, наш менеджер скоро с вами свяжется!')
@@ -426,7 +426,7 @@ async def del_send_order(callback_query: types.CallbackQuery):
 @rate_limit(limit=5, key = 'Сбербанк')
 @dp.message_handler(text='Сбербанк')
 async def buy_process(message: types.Message):
-    data = await postgres_db.get_cart(message.chat.id)
+    data = await sqlrequests.get_cart(message.chat.id)
     proverka = 0
     for heru in data:
         proverka += heru[2]
@@ -435,7 +435,7 @@ async def buy_process(message: types.Message):
     else:
         new_data = []
         for i in range(len(data)):
-            new_data.append(await postgres_db.get_user_product(data[i][2]))
+            new_data.append(await sqlrequests.get_user_product(data[i][2]))
         new_data = [new_data[i][0] for i in range(len(new_data))]
         s = 0
         for i in range(len(data)):
@@ -444,11 +444,11 @@ async def buy_process(message: types.Message):
         limit_price = None
         price_obtaining = None
         gain = 'Курьером'
-        for sert in await postgres_db.sql_get_obtaining(message.chat.id):
+        for sert in await sqlrequests.sql_get_obtaining(message.chat.id):
             obtaining = sert[7]
-        for nerf in await postgres_db.sql_get_pickup_obtaining():
+        for nerf in await sqlrequests.sql_get_pickup_obtaining():
             limit_price = nerf[5]
-        for kart in await postgres_db.sql_get_pickup_obtaining():
+        for kart in await sqlrequests.sql_get_pickup_obtaining():
             price_obtaining = kart[4]
         if gain == obtaining:
             if s >= limit_price:
@@ -461,10 +461,10 @@ async def buy_process(message: types.Message):
             n = 0
             s += 0
         s += n
-        data = await postgres_db.get_cart(message.chat.id)
+        data = await sqlrequests.get_cart(message.chat.id)
         new_data = []
         for i in range(len(data)):
-            new_data.append(await postgres_db.get_user_product(data[i][2]))
+            new_data.append(await sqlrequests.get_user_product(data[i][2]))
         new_data = [new_data[i][0] for i in range(len(new_data))]
         prices = [LabeledPrice(label=new_data[i][3]+f' x {data[i][3]}', amount= new_data[i][5] * 100 * data[i][3]) for i in range(len(new_data))]
         prices += [LabeledPrice(label=f'Доставка', amount= n * 100 )]
@@ -484,11 +484,11 @@ async def checkout_process(pre_checkout_query: types.PreCheckoutQuery):
 
 @dp.message_handler(content_types=types.ContentType.SUCCESSFUL_PAYMENT)
 async def s_pay(message: types.Message):
-    data = await postgres_db.get_cart(message.chat.id)
+    data = await sqlrequests.get_cart(message.chat.id)
     new_data = []
     a = []
     for i in range(len(data)):
-        new_data.append(await postgres_db.get_user_product(data[i][2]))
+        new_data.append(await sqlrequests.get_user_product(data[i][2]))
     new_data = [new_data[i][0] for i in range(len(new_data))]
     a = f'Корзина:\n'
     s = 0
@@ -501,11 +501,11 @@ async def s_pay(message: types.Message):
     limit_price = None
     price_obtaining = None
     gain = 'Курьером'
-    for sert in await postgres_db.sql_get_obtaining(message.chat.id):
+    for sert in await sqlrequests.sql_get_obtaining(message.chat.id):
         obtaining = sert[7]
-    for nerf in await postgres_db.sql_get_pickup_obtaining():
+    for nerf in await sqlrequests.sql_get_pickup_obtaining():
         limit_price = nerf[5]
-    for kart in await postgres_db.sql_get_pickup_obtaining():
+    for kart in await sqlrequests.sql_get_pickup_obtaining():
         price_obtaining = kart[4]
     if gain == obtaining:
         if s >= limit_price:
@@ -520,7 +520,7 @@ async def s_pay(message: types.Message):
     a += f'\nДоставка: {n} рублей'
     s += n
     a += f'\n\nИтого: {s} рублей'
-    data = await postgres_db.get_myself(message.chat.id)
+    data = await sqlrequests.get_myself(message.chat.id)
     for ret in data:
         a += f'\n\nВаши данные:\n\nИмя: {ret[2]}\nНомер телефона: {ret[3]}\nАдрес: {ret[4]}\nКомментарий к заказу: {ret[5]}\nПоложить приборы на количество персон: {ret[6]}\n\nСпособ получения: {ret[7]}\n\nВремя получения: {ret[8]}'
 
@@ -532,7 +532,7 @@ async def s_pay(message: types.Message):
     #  генерируем id заказа
     str1 = list('1234567890')
     data_orders_id = 'Список id_order:\n\n'
-    for ret in await postgres_db.sql_read_id_orders_user():
+    for ret in await sqlrequests.sql_read_id_orders_user():
         data_orders_id += f'{ret[1]}\n'
     random.shuffle(str1)
     order_id = ''.join([random.choice(str1) for x in range(7)])
@@ -551,11 +551,11 @@ async def s_pay(message: types.Message):
         await bot.send_message(message.chat.id, f'Пожалуйста, добавьте товар в корзину, перед отправлением заказа!')
     else:
         #  добавляем в бд
-        await postgres_db.sql_add_order_client_nal(user_id, id_order, cart_order, order_date, status, payment)
+        await sqlrequests.sql_add_order_client_nal(user_id, id_order, cart_order, order_date, status, payment)
         # отправляем сообщение модератору: заказ, его номер, и все данные из корзины и данных клиента на данный момент
-        await bot.send_message(Config.admin_ids, f'Заказ {id_order} сформирован, клиент ожидает звонка!\n\n{a}')
+        await bot.send_message(Config.admin_id, f'Заказ {id_order} сформирован, клиент ожидает звонка!\n\n{a}')
         # очищаем корзину
-        await postgres_db.empty_cart(message.chat.id)
+        await sqlrequests.empty_cart(message.chat.id)
         # отправляем сообщение пользователю: номер заказа, заказ принят, заказ оплачен, ожидайте звонка оператора
         await bot.send_message(message.chat.id, f'Платеж прошел успешно!!!\n\nЗаказ {id_order} сохранён и отправлен на рассмотрение, наш менеджер скоро с вами свяжется!')
 
@@ -570,7 +570,7 @@ async def commands_back(message: types.Message):
 @rate_limit(limit=5, key = '🎁 Акции и скидки')
 #@dp.message_handler(text='🎁 Акции и скидки')
 async def commands_news(message: types.Message):
-    await postgres_db.sql_read_promotion(message)
+    await sqlrequests.sql_read_promotion(message)
 
 '''***************** Логика кнопки "отмена", для прерывания любого процесса *************************'''
 
@@ -589,7 +589,7 @@ async def cancel_handler(message: types.Message, state: FSMContext):
 @dp.message_handler(text = 'Изменить мои данные')
 @dp.message_handler(text = '💚 Мои данные')
 async def commands_myself(message: types.Message):
-    data = await postgres_db.get_myself(message.chat.id)
+    data = await sqlrequests.get_myself(message.chat.id)
     for ret in data:
         await bot.send_message(message.from_user.id, f'Ваши данные:\nИмя: {ret[2]}\nНомер телефона: {ret[3]}\nАдрес: {ret[4]}\nКомментарий к заказу: {ret[5]}', reply_markup=client_kb.inkb_client2)
 
@@ -604,7 +604,7 @@ async def change_name_c(CallbackQuery: types.CallbackQuery):
 @dp.message_handler(state=FSMclient.name_c)
 async def change_name_c2 (message: types.Message, state: FSMContext):
     name_c = message.text
-    await postgres_db.sql_add_name_c(name_c, message.chat.id)
+    await sqlrequests.sql_add_name_c(name_c, message.chat.id)
     await state.finish()
     await message.reply('Имя изменено!')
 
@@ -619,7 +619,7 @@ async def change_number_c(CallbackQuery: types.CallbackQuery):
 @dp.message_handler(state=FSMclient.number_c)
 async def change_number_c2 (message: types.Message, state: FSMContext):
     number_c = message.text
-    await postgres_db.sql_add_number_c(number_c, message.chat.id)
+    await sqlrequests.sql_add_number_c(number_c, message.chat.id)
     await state.finish()
     await message.reply('Номер изменён!')
 
@@ -634,7 +634,7 @@ async def change_adress_c(CallbackQuery: types.CallbackQuery):
 @dp.message_handler(state=FSMclient.adress_c_1)
 async def change_adress_c2 (message: types.Message, state: FSMContext):
     adress_c_1 = message.text
-    await postgres_db.sql_add_adress_c(adress_c_1, message.chat.id)
+    await sqlrequests.sql_add_adress_c(adress_c_1, message.chat.id)
     await state.finish()
     await message.reply('Адрес изменён!')
 
@@ -649,7 +649,7 @@ async def change_commentary_c(CallbackQuery: types.CallbackQuery):
 @dp.message_handler(state=FSMclient.commentary_c)
 async def change_commentary_c2 (message: types.Message, state: FSMContext):
     commentary_c = message.text
-    await postgres_db.sql_add_commentary_c(commentary_c, message.chat.id)
+    await sqlrequests.sql_add_commentary_c(commentary_c, message.chat.id)
     await state.finish()
     await message.reply('Комментарий к заказу изменён!')
 

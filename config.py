@@ -1,13 +1,17 @@
 from dataclasses import dataclass
+import os
 
+from dotenv import load_dotenv
+
+load_dotenv()
 @dataclass
 class Config:
-    token: str = 'token'
-    admin_ids: int = 'admin_ids'
-    pay_token: str = 'pay_token'
+    token: str = os.getenv('TELEGRAM_BOT_TOKEN')
+    admin_id: int = os.getenv('ADMIN_ID')
+    pay_token: str = os.getenv('PAY_TOKEN')
 
-    data_base_p: str = 'data_base_p'
-    user_p: str = 'user_p'
-    host_p: str = 'host_p'
-    password_p: str = 'password_p'
+    name_db: str = os.getenv('POSTGRES_DB')
+    user_db: str = os.getenv('POSTGRES_USER')
+    password_db: str = os.getenv('POSTGRES_PASSWORD')
+    host_db: str = os.getenv('POSTGRES_HOST')
 
