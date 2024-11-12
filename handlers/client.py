@@ -40,7 +40,10 @@ async def commands_start(message: types.Message):
 @rate_limit(limit=5, key = '👨‍🍳 Информация о заведении')
 #@dp.message_handler(text='👨‍🍳 Информация о заведении')
 async def commands_location(message: types.Message):
-    await sqlrequests.sql_read_restaurant(message)
+    restaurants = await sqlrequests.sql_read_restaurant()
+    for restaurant in restaurants:
+        await bot.send_message(message.from_user.id, restaurant.location_time)
+
 
 '''*****************************************Логика меню*************************************************'''
 cb = CallbackData('btn', 'type', 'product_id', 'category_id')
@@ -60,14 +63,14 @@ async def gen_products(data, user_id):
 @rate_limit(limit=5, key = '🍰 Меню')
 #@dp.message_handler(text='🍰 Меню')
 async def commands_products(message: types.Message):
-    for ret in await sqlrequests.sql_read_restaurant_for_availability():
-        prov_availability = f'{ret[6]}'
-        mess_availability = f'{ret [7]}'
+    ret = await sqlrequests.sql_read_restaurant_for_availability()
+    prov_availability = ret[0].availability
+    mess_availability = ret[0].availability_mess
     if str(prov_availability) == '1':
         data = await sqlrequests.get_categories()
         keyboard = InlineKeyboardMarkup()
         for i in data:
-            keyboard.add(InlineKeyboardButton(text=f'{i[0]}', callback_data=f'btn:category:-:{i[1]}'))
+            keyboard.add(InlineKeyboardButton(text=f'{i.category_name}', callback_data=f'btn:category:-:{i.category_id}'))
         await message.answer('Ознакомьтесь с нашим меню', reply_markup=keyboard)
     else:
         await message.answer(mess_availability)
@@ -76,15 +79,15 @@ async def commands_products(message: types.Message):
 async def goods(callback_query: types.CallbackQuery, callback_data: dict):
     data = await sqlrequests.get_products(callback_data.get('category_id'))
     for ret in data:
-        count = await sqlrequests.get_count_in_cart(callback_query.message.chat.id, ret[1])
+        count = await sqlrequests.get_count_in_cart(callback_query.message.chat.id, ret.product_id)
         count = 0 if not count else sum(j[0] for j in count)
-        k1 = InlineKeyboardButton(text=f'{ret[3]}: {ret[5]}p - {count}шт', callback_data=f'btn:plus:{ret[1]}:{ret[6]}')
-        k2 = InlineKeyboardButton(text='🔽 Убавить' , callback_data=f'btn:minus:{ret[1]}:{ret[6]}')
-        k3 = InlineKeyboardButton(text='🔼 Добавить', callback_data=f'btn:plus:{ret[1]}:{ret[6]}')
-        k4 = InlineKeyboardButton(text='❌ Очистить', callback_data=f'btn:del:{ret[1]}:{ret[6]}')
+        k1 = InlineKeyboardButton(text=f'{ret.name}: {ret.price}p - {count}шт', callback_data=f'btn:plus:{ret.product_id}:{ret.category_id}')
+        k2 = InlineKeyboardButton(text='🔽 Убавить' , callback_data=f'btn:minus:{ret.product_id}:{ret.category_id}')
+        k3 = InlineKeyboardButton(text='🔼 Добавить', callback_data=f'btn:plus:{ret.product_id}:{ret.category_id}')
+        k4 = InlineKeyboardButton(text='❌ Очистить', callback_data=f'btn:del:{ret.product_id}:{ret.category_id}')
         inkb_main = InlineKeyboardMarkup(resize_keyboard=True)
         inkb_main.add(k1).add(k2, k3, k4)
-        await bot.send_photo(callback_query.message.chat.id, ret[2], f'{ret[3]}\n{ret[4]}',reply_markup=inkb_main)
+        await bot.send_photo(callback_query.message.chat.id, ret.img, f'{ret.name}\n{ret.description}',reply_markup=inkb_main)
     await bot.send_message(callback_query.message.chat.id, 'Посмотрите другие категории!', reply_markup=InlineKeyboardMarkup(resize_keyboard=True).add(InlineKeyboardButton(text='Назад', callback_data=f'btn:back:-:-')))
 
 @dp.callback_query_handler(cb.filter(type='back'))
@@ -92,7 +95,7 @@ async def back(callback_query: types.CallbackQuery):
     data = await sqlrequests.get_categories()
     keyboard = InlineKeyboardMarkup()
     for i in data:
-        keyboard.add(InlineKeyboardButton(text=f'{i[0]}', callback_data=f'btn:category:-:{i[1]}'))
+        keyboard.add(InlineKeyboardButton(text=f'{i.category_name}', callback_data=f'btn:category:-:{i.category_id}'))
     await callback_query.message.edit_reply_markup(keyboard)
 
 @dp.callback_query_handler(cb.filter(type='minus'))
@@ -114,7 +117,7 @@ async def minus(callback_query: types.CallbackQuery, callback_data: dict):
 async def plus(callback_query: types.CallbackQuery, callback_data: dict):
     product_id = callback_data.get('product_id')
     count_in_cart = await sqlrequests.get_count_in_cart(callback_query.message.chat.id, product_id)
-    if not count_in_cart or count_in_cart[0][0] == 0:
+    if not count_in_cart or count_in_cart == 0:
         await sqlrequests.add_to_cart(callback_query.message.chat.id, product_id)
         await callback_query.message.answer('Добавил!')
     else:
@@ -570,7 +573,9 @@ async def commands_back(message: types.Message):
 @rate_limit(limit=5, key = '🎁 Акции и скидки')
 #@dp.message_handler(text='🎁 Акции и скидки')
 async def commands_news(message: types.Message):
-    await sqlrequests.sql_read_promotion(message)
+    promotions = await sqlrequests.sql_read_promotion()
+    for promotion in promotions:
+            await bot.send_photo(message.from_user.id, promotion.img, f'{promotion.name}\n\n{promotion.description}')
 
 '''***************** Логика кнопки "отмена", для прерывания любого процесса *************************'''
 
@@ -591,7 +596,7 @@ async def cancel_handler(message: types.Message, state: FSMContext):
 async def commands_myself(message: types.Message):
     data = await sqlrequests.get_myself(message.chat.id)
     for ret in data:
-        await bot.send_message(message.from_user.id, f'Ваши данные:\nИмя: {ret[2]}\nНомер телефона: {ret[3]}\nАдрес: {ret[4]}\nКомментарий к заказу: {ret[5]}', reply_markup=client_kb.inkb_client2)
+        await bot.send_message(message.from_user.id, f'Ваши данные:\nИмя: {ret.name}\nНомер телефона: {ret.phone_number}\nАдрес: {ret.adress}\nКомментарий к заказу: {ret.commentary}', reply_markup=client_kb.inkb_client2)
 
 #Начало диалога Изменить_имя
 @dp.callback_query_handler(lambda x: x.data and x.data.startswith('Изменить имя'), state=None)

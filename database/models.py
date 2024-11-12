@@ -1,8 +1,6 @@
-from sqlalchemy import create_engine, Column, Integer, String, Text
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-
-Base = declarative_base()
+from sqlalchemy import Column, Integer, String, Text, ForeignKey
+from sqlalchemy.orm import relationship
+from database.connect import Base
 
 class Product(Base):
     __tablename__ = 'products'
@@ -13,8 +11,11 @@ class Product(Base):
     name = Column(Text)
     description = Column(Text)
     price = Column(Integer)
-    category_id = Column(Integer)
+    category_id = Column(Integer, ForeignKey('categories.category_id'))
     availability = Column(Integer)
+
+    # Связь с категорией
+    category = relationship('Category', back_populates='products')
 
 class Restaurant(Base):
     __tablename__ = 'restaurant'
@@ -54,13 +55,20 @@ class User(Base):
     obtaining = Column(Text)
     time_order = Column(Text)
 
+    # Связь с корзиной и заказами
+    carts = relationship('Cart', back_populates='user', cascade='all, delete-orphan')
+    orders = relationship('OrdersUser', back_populates='user', cascade='all, delete-orphan')
+
 class Cart(Base):
     __tablename__ = 'cart'
     
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer)
+    user_id = Column(Integer, ForeignKey('users.id'))
     product_id = Column(Integer)
     count = Column(Integer)
+
+    # Связь с пользователем
+    user = relationship('User', back_populates='carts')
 
 class Category(Base):
     __tablename__ = 'categories'
@@ -69,12 +77,15 @@ class Category(Base):
     category_id = Column(Integer, primary_key=True)
     availability_cat = Column(Integer)
 
+    # Связь с продуктами
+    products = relationship('Product', back_populates='category', cascade='all, delete-orphan')
+
 class OrdersUser(Base):
     __tablename__ = 'orders_user'
     
     id = Column(Integer, primary_key=True)
     id_order = Column(Integer)
-    user_id = Column(Integer)
+    user_id = Column(Integer, ForeignKey('users.id'))
     cart = Column(Text)
     order_date = Column(Text)
     receiving = Column(Text)
@@ -82,3 +93,5 @@ class OrdersUser(Base):
     payment = Column(Text)
     commentary = Column(Text)
 
+    # Связь с пользователем
+    user = relationship('User', back_populates='orders')

@@ -6,7 +6,7 @@ from aiogram import types, Dispatcher
 from create_bot import dp, bot
 from aiogram.dispatcher.filters import Text
 from database import sqlrequests
-from keyboards import admin_kb, kb_client
+from keyboards import admin_kb, client_kb
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import datetime, random, pytz
 
@@ -77,11 +77,12 @@ async def hange_categories_add_end(message: types.Message, state: FSMContext):
     if message.from_user.id == ID:
         name_cat = message.text
         data_cat_name = 'Список категорий:\n\n'
-        for ret in await sqlrequests.get_all_categories():
-            data_cat_name += f'{ret[0]}\n'
+        for ret in await sqlrequests.get_categories_name():
+            data_cat_name += f'{ret.category_name}\n'
         data_cat_dict = {}
         for s in await sqlrequests.get_all_categories():
-            data_cat_dict[s[0]] = s[1]
+            # data_cat_dict[s[0]] = s[1]
+            data_cat_dict[s.category_name] = s.category_id
         if name_cat in data_cat_name:
             key = name_cat
             number_cat_pos = data_cat_dict[key]
@@ -95,9 +96,9 @@ async def hange_categories_add_end(message: types.Message, state: FSMContext):
                 random.shuffle(str1)
                 product_id = ''.join([random.choice(str1) for x in range(5)])
             async with state.proxy() as data:
-                data['product_id_add'] = product_id
+                data['product_id'] = product_id
             async with state.proxy() as data:
-                data['pos_cat'] = number_cat_pos
+                data['category_id'] = number_cat_pos
             await message.reply('Теперь загрузи фото')
             await FSMadmin.photo.set()
         else:
@@ -124,7 +125,7 @@ async def cancel_handler(message: types.Message, state: FSMContext):
 async def load_photo(message: types.Message, state: FSMContext):
     if message.from_user.id == ID:
         async with state.proxy() as data:
-            data['photo'] = message.photo[2].file_id
+            data['img'] = message.photo[2].file_id
         await FSMadmin.next()
         await message.reply('Теперь введи название или "Отмена"')
 
@@ -217,7 +218,7 @@ async def del_callback_cat_del(callback_query: types.CallbackQuery):
 @dp.message_handler(commands=['Удалить_категорию'])
 async def change_categories_del(message: types.Message):
     if message.from_user.id == ID:
-        data = await sqlrequests.get_all_categories()
+        data = await sqlrequests.get_categories_name()
         for i in data:
             await bot.send_message(message.from_user.id, i[0])
             await bot.send_message(message.from_user.id, text='^^^', reply_markup=InlineKeyboardMarkup().add(InlineKeyboardButton(f'Удалить {i[0]}', callback_data=f'del_cat {i[0]}')))
@@ -263,7 +264,7 @@ async def change_categories_add(message: types.Message):
 async def hange_categories_add_end (message: types.Message, state: FSMContext):
     if message.from_user.id == ID:
         async with state.proxy() as data:
-            data['categories_name'] = message.text
+            data['category_name'] = message.text
             data['availability_cat'] = 1
         await sqlrequests.sql_add_categories(state)
         await state.finish()
@@ -648,7 +649,7 @@ async def del_callback_run_anonce(callback_query: types.CallbackQuery):
 #@dp.message_handler(commands='Режим_пользователя')
 async def in_user(message: types.Message):
     if message.from_user.id == ID:
-        await bot.send_message(message.from_user.id, 'Переходим в главное меню', reply_markup=kb_client)
+        await bot.send_message(message.from_user.id, 'Переходим в главное меню', reply_markup=client_kb.kb_client)
 
 '''******************** Регистрируем хэндлеры ********************************'''
 

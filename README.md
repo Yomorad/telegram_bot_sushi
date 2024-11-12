@@ -3,6 +3,7 @@
 ## Stack
 - Aiogram
 - PostgreSQL
+- Docker-compose
 
 ## Функционал
 ### Клиентская логика
@@ -62,7 +63,8 @@ PAY_TOKEN = ''
 
 ```bash
 docker compose up --build
-# Completed!
-# в конце работы выключаем контейнеры и удаляем привязанные тома
+# подключаемся к бд, как пример:
+docker exec -it sushi_bot-db_service-1 psql -U postgres -d postgres
+# выключаем контейнеры и удаляем привязанные тома
 docker compose down -v
 ```

@@ -8,9 +8,12 @@ middlewares.setup(dp)
 
 async def on_startup(_):
     print ("Бот вышел в онлайн")
-    sqlrequests.sql_start()
-    if await sqlrequests.sql_read_restaurant_for_availability():
-        await sqlrequests.sql_add_start_date()
+    # управляю миграциями через alembic, но на всякий случай оставлю заглушку если потребуется
+    # models.Base.metadata.create_all(bind=engine)
+    # print("База данных создана")
+    if not await sqlrequests.sql_read_restaurant_for_availability():
+        sqlrequests.sql_try_fixtures()
+    print("Фикстуры загружены")
 
 client.register_handlers_client(dp)
 admin.register_handlers_admin(dp)
